@@ -231,12 +231,15 @@ class TestHandleWtUseCurrent:
         ):
             await new_command(nc_update, context)
 
+        query = _make_query()
         await _handle_worktree_callback(
-            _make_query(), CB_WT_USE_CURRENT, _make_update(42), context
+            query, CB_WT_USE_CURRENT, _make_update(42), context
         )
 
-        assert "state lost" in mock_edit.call_args[0][1].lower()
-        assert "Select Provider" not in mock_edit.call_args[0][1]
+        query.answer.assert_awaited_once_with(
+            "Stale browser (flow reset)", show_alert=True
+        )
+        mock_edit.assert_not_called()
 
 
 class TestHandleWtNew:
@@ -365,12 +368,16 @@ class TestHandleWtEditName:
         ):
             await new_command(nc_update, context)
 
+        query = _make_query()
         await _handle_worktree_callback(
-            _make_query(), CB_WT_EDIT_NAME, _make_update(42), context
+            query, CB_WT_EDIT_NAME, _make_update(42), context
         )
 
         assert AWAITING_WORKTREE_BRANCH_NAME not in user_data
-        assert "state lost" in mock_edit.call_args[0][1].lower()
+        query.answer.assert_awaited_once_with(
+            "Stale browser (flow reset)", show_alert=True
+        )
+        mock_edit.assert_not_called()
 
 
 class TestWorktreeDispatchStaleGuard:
@@ -416,6 +423,44 @@ class TestWorktreeDispatchStaleGuard:
         ):
             await _handle_worktree_callback(_make_query(), data, update, context)
             mock.assert_awaited_once()
+
+    @patch(
+        "ccgram.handlers.topics.directory_callbacks._handle_wt_use_current",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "ccgram.handlers.topics.directory_callbacks._handle_wt_new",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "ccgram.handlers.topics.directory_callbacks._handle_wt_confirm",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "ccgram.handlers.topics.directory_callbacks._handle_wt_edit_name",
+        new_callable=AsyncMock,
+    )
+    async def test_no_pending_thread_fails_closed(
+        self,
+        mock_edit_name: AsyncMock,
+        mock_confirm: AsyncMock,
+        mock_new: AsyncMock,
+        mock_use_current: AsyncMock,
+    ) -> None:
+        update = _make_update(42)
+        for data, mock in (
+            (CB_WT_USE_CURRENT, mock_use_current),
+            (CB_WT_NEW, mock_new),
+            (CB_WT_CONFIRM, mock_confirm),
+            (CB_WT_EDIT_NAME, mock_edit_name),
+        ):
+            context = _make_context({PENDING_WORKTREE_REPO: "/stale/repo"})
+            query = _make_query()
+            await _handle_worktree_callback(query, data, update, context)
+            query.answer.assert_awaited_once_with(
+                "Stale browser (flow reset)", show_alert=True
+            )
+            mock.assert_not_awaited()
 
 
 class TestNavigationStaleGuard:

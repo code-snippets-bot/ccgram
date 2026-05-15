@@ -501,7 +501,16 @@ async def _handle_worktree_callback(
     pending_tid = (
         context.user_data.get(PENDING_THREAD_ID) if context.user_data else None
     )
-    if pending_tid is not None and get_thread_id(update) != pending_tid:
+    # Same fail-closed invariant as _handle_confirm / window_callbacks
+    # _handle_new: a live worktree picker always has PENDING_THREAD_ID.
+    # None means the flow was reset (e.g. /new, or Cancel raced the
+    # eligibility probe in _handle_confirm) — a stale tap that would
+    # otherwise reach a sub-handler whose only remaining guard is a
+    # leftover PENDING_WORKTREE_REPO and spawn an unbound window.
+    if pending_tid is None:
+        await query.answer("Stale browser (flow reset)", show_alert=True)
+        return
+    if get_thread_id(update) != pending_tid:
         await query.answer("Stale browser (topic mismatch)", show_alert=True)
         return
     if data == CB_WT_USE_CURRENT:
