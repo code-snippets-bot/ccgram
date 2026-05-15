@@ -213,11 +213,11 @@ Set on window creation in `topic_orchestration.py` when the flow took the worktr
 - Modify or create: `tests/ccgram/handlers/status/test_status_bar_actions.py`
 - Modify or create: `tests/ccgram/handlers/commands/test_forward.py`
 
-- [ ] in `_handle_remote_control`: after `send_to_window(...)`, call `arm_rc_probe(window_id)`. Add lazy-import marker if needed
-- [ ] in `forward.py` at the `cc_name in ("remote-control", "rc")` branch: after the `send_to_window`, call `arm_rc_probe(window_id)` — Claude-provider-only (capability gate inside `arm_rc_probe` handles it, but add a comment)
-- [ ] write a unit test that exercises `_handle_remote_control` with a fake `terminal_screen_buffer` and asserts `arm_rc_probe` is invoked
-- [ ] write a unit test for the forward.py path that asserts `arm_rc_probe` is invoked when the command is `/remote-control` and provider is Claude, and NOT invoked when provider is codex
-- [ ] run `make check` — must pass before Task 3
+- [x] in `_handle_remote_control`: after `send_to_window(...)`, call `arm_rc_probe(window_id, PTBTelegramClient(query.get_bot()))` with a lazy-import marker (rc_probe pulls providers/__init__ — same deferral reason as `_handle_status_recall`). Signature deviation from Task 1 carried through: explicit `client` arg, no global bot accessor
+- [x] in `forward.py`: extracted to helper `_arm_rc_probe_if_remote_control(update, window_id, cc_name)` (kept `forward_command_handler` under the C901 complexity-10 cap — mirrors the existing `_handle_clear_command` helper pattern); helper gates on `cc_name in ("remote-control", "rc")`, calls `arm_rc_probe(window_id, PTBTelegramClient(update.get_bot()))`, docstring states the Claude-only capability gate is internal
+- [x] unit tests in `test_status_bar_actions.py`: `test_arms_rc_probe_after_activation` (fake terminal_screen_buffer inactive → arm invoked with `@0` + `PTBTelegramClient`) and `test_does_not_arm_probe_when_already_active` (rc-active → not armed)
+- [x] unit tests in `test_forward.py`: `test_arms_rc_probe_for_claude_remote_control`, `test_arms_rc_probe_for_rc_alias`, `test_no_rc_probe_for_non_rc_command`, `test_no_rc_probe_for_codex_rejected_remote_control` (codex `/remote-control` rejected by `_command_known_in_other_provider` → arm not invoked, send not called)
+- [x] run `make check` — fmt/lint-lazy/lint/typecheck clean; 4793 unit pass; 267 integration pass; import-cycle + query-layer guards green. ⚠️ `test_doctor_cmd.py::test_reports_missing_hooks_for_codex_provider` still fails (same pre-existing environmental failure documented in Task 1 — codex hooks are installed on this machine; unrelated to Task 2 which touches only RC wiring)
 
 ### Task 3: Worktree helpers module
 
