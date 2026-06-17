@@ -256,7 +256,7 @@ def format_claude_task_status(window_id: str, base_text: str | None) -> str | No
         lines.append(header)
     if pane_block is not None:
         lines.append(pane_block)
-    if snapshot is not None:
+    if snapshot is not None and snapshot.open_count > 0:
         lines.extend(_format_task_lines(snapshot))
     return "\n".join(lines) if lines else base_text
 
