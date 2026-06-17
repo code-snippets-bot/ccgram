@@ -186,7 +186,7 @@ class ClaudeTaskStateStore:
 
         lines: list[str] = [IDLE_STATUS_TEXT]
 
-        if snapshot is not None:
+        if snapshot is not None and snapshot.open_count > 0:
             lines.append("\u2501" * 20)
             for item in snapshot.items[:8]:
                 if item.status == "completed":
